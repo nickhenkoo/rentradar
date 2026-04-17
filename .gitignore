@@ -37,3 +37,4 @@ logs/
 
 # Claude Code
 .claude/
+.impeccable.md
