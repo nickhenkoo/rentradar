@@ -1,0 +1,160 @@
+import os
+import logging
+
+import sentry_sdk
+
+import core.db as db
+from core import notifier
+from core.matcher import find_matching_filters
+from core.models import User
+from parser.sslv import SsLvParser
+from parser.proxy import ProxyPool
+
+logger = logging.getLogger(__name__)
+
+_consecutive_empty_cycles = 0
+
+
+def _get_redis():
+    """Lazy-init Upstash Redis client."""
+    from upstash_redis import Redis
+    return Redis(
+        url=os.environ["UPSTASH_REDIS_REST_URL"],
+        token=os.environ["UPSTASH_REDIS_REST_TOKEN"],
+    )
+
+
+async def run_parse_cycle(bot, tier: str = "free", proxy_pool: ProxyPool = None) -> None:
+    """
+    Full parse cycle.
+    tier: 'paid' — notify paid users only; 'free' — notify all users.
+    """
+    if proxy_pool is None:
+        proxy_pool = ProxyPool()
+
+    try:
+        await _run_parse_cycle_inner(bot, tier, proxy_pool)
+    except Exception as e:
+        logger.error("Unhandled exception in parse cycle: %s", e, exc_info=True)
+        sentry_sdk.capture_exception(e)
+
+
+async def _run_parse_cycle_inner(bot, tier: str, proxy_pool: ProxyPool) -> None:
+    global _consecutive_empty_cycles
+
+    parser = SsLvParser(proxy_pool)
+    listings = await parser.fetch_listings()
+
+    if not listings:
+        _consecutive_empty_cycles += 1
+        logger.warning("Parse cycle returned 0 listings (consecutive: %d)", _consecutive_empty_cycles)
+        if _consecutive_empty_cycles >= 3:
+            msg = f"3+ consecutive empty parse cycles ({_consecutive_empty_cycles}) — check ss.lv selectors"
+            logger.error(msg)
+            sentry_sdk.capture_message(msg, level="error")
+        return
+
+    _consecutive_empty_cycles = 0
+    logger.info("Fetched %d listings across all cities", len(listings))
+
+    redis = _get_redis()
+
+    # Update median prices for hot detection
+    from core.hot import update_medians, is_hot
+    await update_medians(listings, redis)
+
+    all_filters = await db.get_all_active_filters()
+    if not all_filters:
+        for listing in listings:
+            await db.save_listing(listing)
+        return
+
+    all_users: dict[int, User] = {}
+
+    for listing in listings:
+        is_new = await db.save_listing(listing)
+        if not is_new:
+            continue
+
+        matched = await find_matching_filters(listing, all_filters)
+        if not matched:
+            continue
+
+        # contact_url is already in listing.contacts from the index page.
+        # Image is already extracted from index page in .800.jpg quality.
+        if listing.contacts:
+            await db.update_listing_contacts(listing.id, listing.contacts)
+
+        hot = await is_hot(listing, redis)
+
+        for f in matched:
+            if f.user_id not in all_users:
+                user = await db.get_user(f.user_id)
+                if user is None:
+                    continue
+                all_users[f.user_id] = user
+            user = all_users[f.user_id]
+
+            # Tier filtering: 'paid' job notifies only paid-speed users
+            if tier == "paid" and not user.has("speed"):
+                continue
+
+            # Global pause check
+            if user.alerts_paused:
+                continue
+
+            already_sent = await db.has_alert_been_sent(user.id, listing.id)
+            if already_sent:
+                continue
+
+            await notifier.send_alert(bot, user, listing, f, is_hot=(hot and user.has("hot")))
+            await db.mark_alert_sent(user.id, listing.id, filter_id=f.id)
+
+
+async def recheck_prices(proxy_pool: ProxyPool = None) -> None:
+    """
+    Re-check known listing URLs and record price changes.
+    Only fetches listings seen in the last 30 days.
+    """
+    db_client = db.get_client()
+    from datetime import datetime, timedelta
+    cutoff = (datetime.utcnow() - timedelta(days=30)).isoformat()
+    result = (
+        db_client.table("listings")
+        .select("id, url, price")
+        .gt("last_seen", cutoff)
+        .execute()
+    )
+    if not result.data:
+        return
+
+    if proxy_pool is None:
+        proxy_pool = ProxyPool()
+
+    import httpx, re, asyncio, random
+    from bs4 import BeautifulSoup
+
+    for row in result.data[:50]:  # cap at 50 per cycle to avoid hammering
+        await asyncio.sleep(random.uniform(3.0, 7.0))
+        try:
+            html = await fetch_listing_price(row["url"], proxy_pool)
+            if html is None:
+                continue
+            soup = BeautifulSoup(html, "lxml")
+            price_el = soup.select_one(".ads_price, [class*='price']")
+            if not price_el:
+                continue
+            m = re.search(r'(\d+)\s*€', price_el.get_text())
+            if not m:
+                continue
+            new_price = int(m.group(1))
+            if new_price != row.get("price"):
+                await db.save_price_point(row["id"], new_price)
+                db_client.table("listings").update({"price": new_price}).eq("id", row["id"]).execute()
+        except Exception as e:
+            logger.debug("Price recheck failed for %s: %s", row["id"], e)
+
+
+async def fetch_listing_price(url: str, pool: ProxyPool):
+    from parser.proxy import fetch_with_proxy
+    return await fetch_with_proxy(url, pool, retries=2)
