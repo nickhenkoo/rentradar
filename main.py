@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 
 import sentry_sdk
 from dotenv import load_dotenv
@@ -11,6 +12,7 @@ from bot.app import build_application
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     level=os.environ.get("LOG_LEVEL", "INFO"),
+    stream=sys.stdout,
 )
 # httpx logs full URLs (including bot token) — suppress to WARNING
 logging.getLogger("httpx").setLevel(logging.WARNING)
