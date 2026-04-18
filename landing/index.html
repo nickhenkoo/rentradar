@@ -447,12 +447,12 @@
 
 <div class="nav-wrapper">
   <nav>
-    <a href="/" class="logo">
+    <div class="logo" style="cursor: default;">
       <div class="logo-icon">
         <img src="assets/favicons/favicon-32x32.png" alt="RentRadar" width="28" height="28" />
       </div>
       RentRadar
-    </a>
+    </div>
     <div class="nav-right">
       <div class="lang-dropdown" id="langDropdown">
         <button class="lang-toggle" onclick="toggleLangMenu(event)">
@@ -659,20 +659,20 @@
   </div>
 </section>
 
-<footer style="background: #f5f5f7; border-top: 1px solid var(--border); padding: 32px 0;">
+<footer style="background: #f5f5f7; border-top: 1px solid var(--border); padding: 20px 0;">
   <div class="container" style="display: flex; align-items: center; justify-content: center; gap: 0; flex-wrap: wrap;">
     <!-- Logo + Name -->
-    <div style="display: flex; align-items: center; gap: 10px; padding: 0 24px;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 0 20px;">
       <span style="font-size: 1.05rem; font-weight: 700; color: var(--dark); letter-spacing: -0.02em;">RentRadar</span>
     </div>
     <!-- Divider -->
     <span style="color: var(--border); font-size: 0.9rem;">|</span>
     <!-- Copyright -->
-    <span style="color: var(--muted); font-size: 0.9rem; padding: 0 24px;">© 2026</span>
+    <span style="color: var(--muted); font-size: 0.85rem; padding: 0 20px;">© 2026 <span data-i18n="all_rights"></span></span>
     <!-- Divider -->
     <span style="color: var(--border); font-size: 0.9rem;">|</span>
     <!-- Button -->
-    <a href="https://t.me/ApartmentsLVBot" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; background: white; color: var(--primary); font-size: 0.9rem; font-weight: 600; padding: 8px 20px; border-radius: var(--radius-pill); box-shadow: 0 2px 8px rgba(0,0,0,0.06); transition: all 0.2s; border: 1px solid var(--border); text-decoration: none; margin: 0 24px;" data-i18n="footer_cta">
+    <a href="https://t.me/ApartmentsLVBot" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; background: white; color: var(--primary); font-size: 0.85rem; font-weight: 600; padding: 6px 16px; border-radius: var(--radius-pill); box-shadow: 0 2px 8px rgba(0,0,0,0.06); transition: all 0.2s; border: 1px solid var(--border); text-decoration: none; margin: 0 20px;" data-i18n="footer_cta">
     </a>
   </div>
 </footer>
@@ -681,6 +681,7 @@
 const T = {
   nav_cta:    { en: "Open in Telegram", ru: "Открыть в Telegram", lv: "Atvērt Telegram" },
   footer_cta: { en: "@ApartmentsLVBot", ru: "@ApartmentsLVBot", lv: "@ApartmentsLVBot" },
+  all_rights: { en: "All rights reserved", ru: "Все права защищены", lv: "Visas tiesības aizsargātas" },
   badge_online: { en: "Bot Online", ru: "Бот активен", lv: "Bots tiešsaistē" },
   badge_free: { en: "Free to use", ru: "Бесплатно", lv: "Bezmaksas" },
 

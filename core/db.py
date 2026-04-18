@@ -77,12 +77,12 @@ async def _get_active_features(user_id: int) -> set:
     return features
 
 
-async def get_or_create_user(telegram_user) -> User:
+async def get_or_create_user(telegram_user) -> tuple:
     db = get_client()
     result = db.table("users").select("*").eq("id", telegram_user.id).execute()
     if result.data:
         features = await _get_active_features(telegram_user.id)
-        return _row_to_user(result.data[0], features)
+        return _row_to_user(result.data[0], features), False
 
     row = {
         "id": telegram_user.id,
@@ -91,7 +91,7 @@ async def get_or_create_user(telegram_user) -> User:
         "language": "en",
     }
     result = db.table("users").insert(row).execute()
-    return _row_to_user(result.data[0], set())
+    return _row_to_user(result.data[0], set()), True
 
 
 async def update_user_language(user_id: int, lang: str) -> None:
@@ -396,3 +396,19 @@ async def get_users_with_feature(feature: str) -> list[User]:
         features = await _get_active_features(row["id"])
         result.append(_row_to_user(row, features))
     return result
+
+
+async def save_feedback(user_id: int, rating: int) -> str:
+    """Returns the new feedback row ID."""
+    result = get_client().table("user_feedback").insert({"user_id": user_id, "rating": rating}).execute()
+    return result.data[0]["id"]
+
+
+async def update_feedback_comment(feedback_id: str, comment: str) -> None:
+    get_client().table("user_feedback").update({"comment": comment}).eq("id", feedback_id).execute()
+
+
+async def save_report(user_id: int, listing_id: str, reason: str) -> None:
+    get_client().table("listing_reports").insert({
+        "user_id": user_id, "listing_id": listing_id, "reason": reason,
+    }).execute()

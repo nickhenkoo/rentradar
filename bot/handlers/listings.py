@@ -177,13 +177,15 @@ async def save_listing_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
     if result is True:
         await context.bot.send_message(user_id, t("listing_saved", lang))
-        # Update keyboard: replace Save button with Unsave button
         listing_url = await db.get_listing_url(listing_id)
         if listing_url:
             localized_url = _localize_url(listing_url, lang)
             new_keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton(t("btn_view", lang), url=localized_url)],
-                [InlineKeyboardButton(t("btn_unsave_listing", lang), callback_data=f"unsave_listing_{listing_id}")],
+                [
+                    InlineKeyboardButton(t("btn_unsave_listing", lang), callback_data=f"unsave_listing_{listing_id}"),
+                    InlineKeyboardButton(t("btn_report", lang), callback_data=f"report_listing|{listing_id}"),
+                ],
             ])
             try:
                 await query.edit_message_reply_markup(reply_markup=new_keyboard)
@@ -212,7 +214,10 @@ async def unsave_listing_callback(update: Update, context: ContextTypes.DEFAULT_
         localized_url = _localize_url(listing_url, lang)
         restored_keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton(t("btn_view", lang), url=localized_url)],
-            [InlineKeyboardButton(t("btn_save_listing", lang), callback_data=f"save_listing_{listing_id}")],
+            [
+                InlineKeyboardButton(t("btn_save_listing", lang), callback_data=f"save_listing_{listing_id}"),
+                InlineKeyboardButton(t("btn_report", lang), callback_data=f"report_listing|{listing_id}"),
+            ],
         ])
         try:
             await query.edit_message_reply_markup(reply_markup=restored_keyboard)
@@ -233,17 +238,45 @@ async def note_listing_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 async def note_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    listing_id = context.user_data.get("awaiting_note_for")
-    if not listing_id:
-        return
     user_id = update.effective_user.id
     user = await db.get_user(user_id)
     lang = user.language if user else "en"
-
     text = update.message.text.strip()
+
+    # Feedback comment state
+    fb_state = context.user_data.get("awaiting_feedback_comment")
+    if fb_state:
+        if len(text) > 500:
+            await update.message.reply_text(t("feedback_comment_too_long", lang))
+            return
+        context.user_data.pop("awaiting_feedback_comment")
+        await db.update_feedback_comment(fb_state["id"], text)
+        await update.message.reply_text(t("feedback_thanks", lang))
+
+        log_channel = __import__("os").getenv("LOG_CHANNEL_ID")
+        if log_channel:
+            from telegram.constants import ParseMode as _PM
+            from bot.handlers.feedback import _FEEDBACK_EMOJIS
+            emoji = _FEEDBACK_EMOJIS.get(fb_state["rating"], "?")
+            ref = f"@{update.effective_user.username}" if update.effective_user.username else str(user_id)
+            try:
+                await context.bot.send_message(
+                    log_channel,
+                    f"💬 Feedback comment from {ref} {emoji}:\n{text}",
+                    parse_mode=_PM.HTML,
+                )
+            except Exception:
+                pass
+        return
+
+    # Note state
+    listing_id = context.user_data.get("awaiting_note_for")
+    if not listing_id:
+        return
+
     if len(text) > 200:
         await update.message.reply_text(t("note_too_long", lang))
-        return  # keep awaiting_note_for so user can retry
+        return
 
     context.user_data.pop("awaiting_note_for")
     await db.update_saved_note(user_id, listing_id, text)

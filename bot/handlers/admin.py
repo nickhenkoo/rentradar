@@ -370,7 +370,7 @@ async def admin_test_analytics(update: Update, context: ContextTypes.DEFAULT_TYP
     result = (
         db_client.table("listings")
         .select("city, price, rooms, district")
-        .gt("created_at", week_ago)
+        .gt("first_seen", week_ago)
         .neq("is_long_term", False)
         .execute()
     )

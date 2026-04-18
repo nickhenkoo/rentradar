@@ -111,6 +111,33 @@ async def _run_parse_cycle_inner(bot, tier: str, proxy_pool: ProxyPool) -> None:
             await db.mark_alert_sent(user.id, listing.id, filter_id=f.id)
 
 
+def _extract_price_from_detail(html: str) -> int | None:
+    """
+    Extract rental price from an ss.lv listing detail page.
+    Tries multiple selectors in priority order, then falls back to regex scan.
+    Returns None if no reliable price found.
+    """
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup(html, "lxml")
+
+    # Try known ss.lv price table cell patterns (detail page)
+    for sel in ("#tdo_8", "td.ads_price", ".ads_price", "#price_field"):
+        el = soup.select_one(sel)
+        if el:
+            m = re.search(r'(\d[\d\s]{1,6})\s*€', el.get_text())
+            if m:
+                return int(m.group(1).replace(" ", ""))
+
+    # Fallback: scan all text nodes for "NNN €/month" pattern
+    # Use strict pattern to avoid matching e.g. "40 €/day"
+    for text in soup.stripped_strings:
+        m = re.search(r'(\d[\d\s]{1,5})\s*€\s*/?\s*(m[eē]n|month|mēn)', text, re.IGNORECASE)
+        if m:
+            return int(m.group(1).replace(" ", ""))
+
+    return None
+
+
 async def recheck_prices(proxy_pool: ProxyPool = None) -> None:
     """
     Re-check known listing URLs and record price changes.
@@ -140,17 +167,13 @@ async def recheck_prices(proxy_pool: ProxyPool = None) -> None:
             html = await fetch_listing_price(row["url"], proxy_pool)
             if html is None:
                 continue
-            soup = BeautifulSoup(html, "lxml")
-            price_el = soup.select_one(".ads_price, [class*='price']")
-            if not price_el:
+            new_price = _extract_price_from_detail(html)
+            if new_price is None:
                 continue
-            m = re.search(r'(\d+)\s*€', price_el.get_text())
-            if not m:
-                continue
-            new_price = int(m.group(1))
-            if new_price != row.get("price"):
+            if new_price != row.get("price") and 10 <= new_price <= 50000:
                 await db.save_price_point(row["id"], new_price)
                 db_client.table("listings").update({"price": new_price}).eq("id", row["id"]).execute()
+                logger.info("Price change detected for %s: %s → %s", row["id"], row.get("price"), new_price)
         except Exception as e:
             logger.debug("Price recheck failed for %s: %s", row["id"], e)
 

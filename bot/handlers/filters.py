@@ -43,7 +43,7 @@ def _parse_range(text: str) -> tuple[int | None, int | None]:
 
 async def addfilter_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user_id = update.effective_user.id
-    user = await db.get_or_create_user(update.effective_user)
+    user, _ = await db.get_or_create_user(update.effective_user)
     lang = user.language
     context.user_data.clear()
     context.user_data["lang"] = lang

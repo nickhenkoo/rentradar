@@ -18,6 +18,10 @@ from bot.handlers.subscription import (
     subscribe, buy_feature_callback, precheckout_callback, successful_payment, status,
 )
 from bot.handlers.premium import price_history_callback
+from bot.handlers.feedback import (
+    feedback_rate_callback, feedback_comment_skip_callback,
+    report_listing_callback, report_reason_callback, report_cancel_callback,
+)
 from bot.handlers.admin import (
     admin_panel, admin_stats, admin_grant, admin_user,
     admin_broadcast, admin_test_alerts, admin_refresh, admin_setplan,
@@ -143,6 +147,12 @@ def build_application() -> Application:
     app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment))
 
     app.add_handler(CallbackQueryHandler(price_history_callback, pattern="^history_"))
+
+    app.add_handler(CallbackQueryHandler(feedback_rate_callback, pattern=r"^feedback_rate_\d$"))
+    app.add_handler(CallbackQueryHandler(feedback_comment_skip_callback, pattern="^feedback_comment_skip$"))
+    app.add_handler(CallbackQueryHandler(report_listing_callback, pattern=r"^report_listing\|"))
+    app.add_handler(CallbackQueryHandler(report_reason_callback, pattern=r"^report_reason\|"))
+    app.add_handler(CallbackQueryHandler(report_cancel_callback, pattern=r"^report_cancel\|"))
 
     # Note message handler — must be last (lowest priority)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, note_message_handler))

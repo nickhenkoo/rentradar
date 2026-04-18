@@ -122,9 +122,12 @@ class SsLvParser(BaseParser):
 
         return listings
 
+    # Keywords that indicate daily/nightly pricing in price cell text
+    _SHORT_TERM_PRICE_KEYWORDS = ("day", "nakts", "dien", "nakt", "night", "час", "hour")
+
     def _extract_price_and_term(self, cells) -> tuple[Optional[int], Optional[bool]]:
         """
-        Price cell (last) looks like '450  €/month' or '40  €/day'.
+        Price cell (last) looks like '450 €/month', '40 €/day', '30 €/dien.'
         Returns (price_int_or_None, is_long_term_bool_or_None).
         """
         if not cells:
@@ -134,7 +137,8 @@ class SsLvParser(BaseParser):
         if not match:
             return None, None
         price = int(match.group(1).replace(" ", ""))
-        is_long_term = "day" not in price_text.lower() and "nakts" not in price_text.lower()
+        pt_lower = price_text.lower()
+        is_long_term = not any(kw in pt_lower for kw in self._SHORT_TERM_PRICE_KEYWORDS)
         return price, is_long_term
 
     def _extract_rooms(self, cells) -> Optional[int]:

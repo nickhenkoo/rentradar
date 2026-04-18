@@ -1,3 +1,4 @@
+import os
 from telegram import Update
 from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
@@ -6,7 +7,18 @@ from bot.i18n import t, lang_keyboard
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await db.get_or_create_user(update.effective_user)
+    user = update.effective_user
+    _, is_new = await db.get_or_create_user(user)
+    if is_new:
+        log_channel = os.getenv("LOG_CHANNEL_ID")
+        if log_channel:
+            name = user.full_name
+            username = f" @{user.username}" if user.username else ""
+            await context.bot.send_message(
+                log_channel,
+                f"👤 New user: <b>{name}</b>{username} (<code>{user.id}</code>)",
+                parse_mode=ParseMode.HTML,
+            )
     await update.message.reply_text(
         t("choose_language", "en"),
         reply_markup=lang_keyboard(),

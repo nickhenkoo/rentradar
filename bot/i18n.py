@@ -142,6 +142,21 @@ STRINGS: dict[str, dict[str, str]] = {
             "/language — change language\n"
             "/help — this message"
         ),
+
+        # feedback
+        "feedback_prompt":              "👋 Quick question — how are the alerts working for you?",
+        "feedback_comment_prompt":      "Thanks! Want to add a comment? (optional)\nSend a message or tap Skip.",
+        "feedback_thanks":              "Thanks for your feedback! 🙏",
+        "feedback_comment_too_long":    "Comment must be under 500 characters.",
+
+        # report
+        "btn_report":               "⚠️ Report issue",
+        "report_pick_reason":       "What's wrong with this listing?",
+        "report_wrong_price":       "Wrong price",
+        "report_already_rented":    "Already rented",
+        "report_wrong_info":        "Wrong info (area, rooms, etc.)",
+        "report_spam":              "Spam / duplicate",
+        "report_submitted":         "✅ Thanks! Your report has been sent.",
     },
 
     "ru": {
@@ -281,6 +296,21 @@ STRINGS: dict[str, dict[str, str]] = {
             "/language — изменить язык\n"
             "/help — это сообщение"
         ),
+
+        # feedback
+        "feedback_prompt":              "👋 Быстрый вопрос — как вам уведомления?",
+        "feedback_comment_prompt":      "Спасибо! Хотите добавить комментарий? (необязательно)\nОтправьте сообщение или нажмите Пропустить.",
+        "feedback_thanks":              "Спасибо за отзыв! 🙏",
+        "feedback_comment_too_long":    "Комментарий должен быть до 500 символов.",
+
+        # report
+        "btn_report":               "⚠️ Сообщить об ошибке",
+        "report_pick_reason":       "Что не так с этим объявлением?",
+        "report_wrong_price":       "Неверная цена",
+        "report_already_rented":    "Уже сдано",
+        "report_wrong_info":        "Неверные данные (площадь, комнаты и т.д.)",
+        "report_spam":              "Спам / дубликат",
+        "report_submitted":         "✅ Спасибо! Мы получили ваш отчёт.",
     },
 
     "lv": {
@@ -420,6 +450,21 @@ STRINGS: dict[str, dict[str, str]] = {
             "/language — mainīt valodu\n"
             "/help — šī ziņa"
         ),
+
+        # feedback
+        "feedback_prompt":              "👋 Īss jautājums — kā darbojas paziņojumi?",
+        "feedback_comment_prompt":      "Paldies! Vēlaties pievienot komentāru? (neobligāti)\nNosūtiet ziņu vai nospiediet Izlaist.",
+        "feedback_thanks":              "Paldies par atsauksmi! 🙏",
+        "feedback_comment_too_long":    "Komentāram jābūt līdz 500 rakstzīmēm.",
+
+        # report
+        "btn_report":               "⚠️ Ziņot par kļūdu",
+        "report_pick_reason":       "Kas ir nepareizi šajā sludinājumā?",
+        "report_wrong_price":       "Nepareiza cena",
+        "report_already_rented":    "Jau izīrēts",
+        "report_wrong_info":        "Nepareiza informācija (platība, istabas u.c.)",
+        "report_spam":              "Surogātpasts / dublikāts",
+        "report_submitted":         "✅ Paldies! Jūsu ziņojums ir nosūtīts.",
     },
 }
 

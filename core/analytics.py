@@ -22,7 +22,7 @@ async def send_weekly_analytics(bot) -> None:
     result = (
         supabase.table("listings")
         .select("city, price, rooms, district")
-        .gt("created_at", week_ago)
+        .gt("first_seen", week_ago)
         .neq("is_long_term", False)
         .execute()
     )
