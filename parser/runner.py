@@ -73,7 +73,11 @@ async def _run_parse_cycle_inner(bot, tier: str, proxy_pool: ProxyPool) -> None:
 
     for listing in listings:
         is_new = await db.save_listing(listing)
-        if not is_new:
+
+        # paid cycle: skip listings already seen (processed by a previous paid cycle)
+        # free cycle: always proceed — paid cycle may have saved the listing first,
+        #             so is_new=False even though free users were never notified
+        if tier == "paid" and not is_new:
             continue
 
         matched = await find_matching_filters(listing, all_filters)
