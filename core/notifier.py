@@ -1,5 +1,7 @@
+import io
 import logging
 import random
+import httpx
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ParseMode
 
@@ -77,6 +79,20 @@ def _build_keyboard(user: User, listing: Listing, lang: str) -> InlineKeyboardMa
     return InlineKeyboardMarkup([row1, row2])
 
 
+async def _fetch_image(url: str) -> io.BytesIO | None:
+    """Download image from ss.lv and return as BytesIO so Telegram uploads it directly."""
+    try:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+            r = await client.get(url, headers={"Referer": "https://www.ss.lv/"})
+        if r.status_code == 200 and r.content:
+            buf = io.BytesIO(r.content)
+            buf.name = "photo.jpg"
+            return buf
+    except Exception as e:
+        logger.debug("Failed to fetch image %s: %s", url, e)
+    return None
+
+
 async def send_alert(bot, user: User, listing: Listing, f: Filter, is_hot: bool = False) -> None:
     lang = user.language
     text = _build_alert_text(user, listing, f, is_hot)
@@ -84,10 +100,11 @@ async def send_alert(bot, user: User, listing: Listing, f: Filter, is_hot: bool 
 
     sent = False
     if listing.image_urls:
+        photo_bytes = await _fetch_image(listing.image_urls[0])
         try:
             await bot.send_photo(
                 chat_id=user.id,
-                photo=listing.image_urls[0],
+                photo=photo_bytes or listing.image_urls[0],
                 caption=text,
                 parse_mode=ParseMode.HTML,
                 reply_markup=keyboard,

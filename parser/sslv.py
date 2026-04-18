@@ -219,7 +219,7 @@ class SsLvParser(BaseParser):
         if len(cells) > 7:
             text = cells[7].get_text(strip=True)
             if text:
-                return self._SERIES_MAP.get(text)  # None if unknown (e.g. "Recon.")
+                return self._SERIES_MAP.get(text, text)  # fallback to raw label if unmapped
         return None
 
     def _extract_district_and_street(self, cells) -> tuple[Optional[str], Optional[str]]:
