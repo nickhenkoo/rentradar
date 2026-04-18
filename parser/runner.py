@@ -14,6 +14,7 @@ from parser.proxy import ProxyPool
 logger = logging.getLogger(__name__)
 
 _consecutive_empty_cycles = 0
+_startup_time = datetime.utcnow()
 
 
 def _get_redis():
@@ -76,14 +77,21 @@ async def _run_parse_cycle_inner(bot, tier: str, proxy_pool: ProxyPool) -> None:
     max_age = timedelta(minutes=free_interval * 2)
     now = datetime.utcnow()
 
+    # Grace period: skip alerts for the first full free cycle after startup
+    # so the DB can populate without flooding users with pre-existing listings.
+    grace_period = timedelta(minutes=free_interval + 5)
+    in_grace = (now - _startup_time) < grace_period
+
     for listing in listings:
         is_new, created_at = await db.save_listing(listing)
+
+        if in_grace:
+            continue
 
         # paid cycle: skip listings already seen (processed by a previous paid cycle)
         # free cycle: always proceed — paid cycle may have saved the listing first,
         #             so is_new=False even though free users were never notified.
-        #             But skip listings older than 2× free_interval to avoid flooding
-        #             on restart or after DB truncate.
+        #             But skip listings older than 2× free_interval to avoid flooding.
         if tier == "paid" and not is_new:
             continue
         if tier == "free" and not is_new and (now - created_at) > max_age:
