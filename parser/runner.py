@@ -14,7 +14,17 @@ from parser.proxy import ProxyPool
 logger = logging.getLogger(__name__)
 
 _consecutive_empty_cycles = 0
-_startup_time = datetime.utcnow()
+# IDs of listings that existed in DB at bot startup — never alert on these
+_preexisting_ids: set[str] | None = None
+
+
+async def _load_preexisting_ids() -> None:
+    global _preexisting_ids
+    if _preexisting_ids is not None:
+        return
+    result = db.get_client().table("listings").select("id").execute()
+    _preexisting_ids = {r["id"] for r in result.data}
+    logger.info("Loaded %d preexisting listing IDs — will not alert on these", len(_preexisting_ids))
 
 
 def _get_redis():
@@ -73,19 +83,17 @@ async def _run_parse_cycle_inner(bot, tier: str, proxy_pool: ProxyPool) -> None:
 
     all_users: dict[int, User] = {}
 
+    await _load_preexisting_ids()
+
     free_interval = int(os.environ.get("PARSE_INTERVAL_FREE_MINUTES", 30))
     max_age = timedelta(minutes=free_interval * 2)
     now = datetime.utcnow()
 
-    # Grace period: skip alerts for the first full free cycle after startup
-    # so the DB can populate without flooding users with pre-existing listings.
-    grace_period = timedelta(minutes=free_interval + 5)
-    in_grace = (now - _startup_time) < grace_period
-
     for listing in listings:
         is_new, created_at = await db.save_listing(listing)
 
-        if in_grace:
+        # Never alert on listings that existed in DB when the bot started
+        if listing.id in _preexisting_ids:
             continue
 
         # paid cycle: skip listings already seen (processed by a previous paid cycle)
