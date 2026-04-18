@@ -1,5 +1,6 @@
 import os
 import logging
+from datetime import datetime, timedelta
 
 import sentry_sdk
 
@@ -71,13 +72,21 @@ async def _run_parse_cycle_inner(bot, tier: str, proxy_pool: ProxyPool) -> None:
 
     all_users: dict[int, User] = {}
 
+    free_interval = int(os.environ.get("PARSE_INTERVAL_FREE_MINUTES", 30))
+    max_age = timedelta(minutes=free_interval * 2)
+    now = datetime.utcnow()
+
     for listing in listings:
-        is_new = await db.save_listing(listing)
+        is_new, created_at = await db.save_listing(listing)
 
         # paid cycle: skip listings already seen (processed by a previous paid cycle)
         # free cycle: always proceed — paid cycle may have saved the listing first,
-        #             so is_new=False even though free users were never notified
+        #             so is_new=False even though free users were never notified.
+        #             But skip listings older than 2× free_interval to avoid flooding
+        #             on restart or after DB truncate.
         if tier == "paid" and not is_new:
+            continue
+        if tier == "free" and not is_new and (now - created_at) > max_age:
             continue
 
         matched = await find_matching_filters(listing, all_filters)

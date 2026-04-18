@@ -142,13 +142,15 @@ async def set_filter_active(filter_id: str, user_id: int, active: bool) -> None:
     get_client().table("filters").update({"is_active": active}).eq("id", filter_id).eq("user_id", user_id).execute()
 
 
-async def save_listing(listing: Listing) -> bool:
-    """Returns True if listing is new. Updates last_seen if already known."""
+async def save_listing(listing: Listing) -> tuple[bool, datetime]:
+    """Returns (is_new, created_at). Updates last_seen if already known."""
     db = get_client()
-    result = db.table("listings").select("id").eq("id", listing.id).execute()
+    now = datetime.utcnow()
+    result = db.table("listings").select("id, created_at").eq("id", listing.id).execute()
     if result.data:
-        db.table("listings").update({"last_seen": datetime.utcnow().isoformat()}).eq("id", listing.id).execute()
-        return False
+        db.table("listings").update({"last_seen": now.isoformat()}).eq("id", listing.id).execute()
+        created_at = _parse_dt(result.data[0].get("created_at")) or now
+        return False, created_at
 
     row = {
         "id": listing.id,
@@ -170,14 +172,15 @@ async def save_listing(listing: Listing) -> bool:
         "description": listing.description,
     }
     try:
-        db.table("listings").insert(row).execute()
+        inserted = db.table("listings").insert(row).execute()
+        created_at = _parse_dt(inserted.data[0].get("created_at")) if inserted.data else now
         # Record initial price point so price history starts from day one
         if listing.price:
             await save_price_point(listing.id, listing.price)
-        return True
+        return True, created_at or now
     except Exception as e:
         logger.debug("Listing already exists: %s (%s)", listing.id, e)
-        return False
+        return False, now
 
 
 async def update_listing_contacts(listing_id: str, contacts: dict) -> None:
