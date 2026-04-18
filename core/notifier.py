@@ -82,8 +82,9 @@ async def send_alert(bot, user: User, listing: Listing, f: Filter, is_hot: bool 
     text = _build_alert_text(user, listing, f, is_hot)
     keyboard = _build_keyboard(user, listing, lang)
 
-    try:
-        if listing.image_urls:
+    sent = False
+    if listing.image_urls:
+        try:
             await bot.send_photo(
                 chat_id=user.id,
                 photo=listing.image_urls[0],
@@ -91,16 +92,21 @@ async def send_alert(bot, user: User, listing: Listing, f: Filter, is_hot: bool 
                 parse_mode=ParseMode.HTML,
                 reply_markup=keyboard,
             )
-        else:
+            sent = True
+        except Exception as e:
+            logger.warning("send_photo failed for user %d (%s), falling back to text: %s", user.id, listing.id, e)
+
+    if not sent:
+        try:
             await bot.send_message(
                 chat_id=user.id,
                 text=text,
                 parse_mode=ParseMode.HTML,
                 reply_markup=keyboard,
             )
-    except Exception as e:
-        logger.error("Failed to send alert to user %d: %s", user.id, e)
-        return
+        except Exception as e:
+            logger.error("Failed to send alert to user %d: %s", user.id, e)
+            return
 
     if random.random() < _FEEDBACK_PROBABILITY:
         feedback_keyboard = InlineKeyboardMarkup([[
