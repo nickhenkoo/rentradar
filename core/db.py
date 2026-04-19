@@ -1,14 +1,31 @@
 import os
+import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import Optional
 
 from supabase import create_client, Client
+from postgrest.exceptions import APIError
 from core.models import User, Filter, Listing, PricePoint, PRO_FEATURES
 
 logger = logging.getLogger(__name__)
 
 _client: Optional[Client] = None
+
+
+async def _retry(fn, retries: int = 3, delay: float = 2.0):
+    """Retry a synchronous Supabase call on transient 5xx errors."""
+    for attempt in range(retries):
+        try:
+            return fn()
+        except APIError as e:
+            code = str(e.args[0].get("code", "")) if e.args else ""
+            if code in ("502", "503", "504") and attempt < retries - 1:
+                logger.warning("Supabase transient error %s, retry %d/%d", code, attempt + 1, retries - 1)
+                await asyncio.sleep(delay * (attempt + 1))
+                continue
+            raise
+    raise RuntimeError("Unreachable")
 
 
 def get_client() -> Client:
@@ -146,9 +163,9 @@ async def save_listing(listing: Listing) -> tuple[bool, datetime]:
     """Returns (is_new, created_at). Updates last_seen if already known."""
     db = get_client()
     now = datetime.utcnow()
-    result = db.table("listings").select("id, created_at").eq("id", listing.id).execute()
+    result = await _retry(lambda: db.table("listings").select("id, created_at").eq("id", listing.id).execute())
     if result.data:
-        db.table("listings").update({"last_seen": now.isoformat()}).eq("id", listing.id).execute()
+        await _retry(lambda: db.table("listings").update({"last_seen": now.isoformat()}).eq("id", listing.id).execute())
         created_at = _parse_dt(result.data[0].get("created_at")) or now
         return False, created_at
 
@@ -172,12 +189,17 @@ async def save_listing(listing: Listing) -> tuple[bool, datetime]:
         "description": listing.description,
     }
     try:
-        inserted = db.table("listings").insert(row).execute()
+        inserted = await _retry(lambda: db.table("listings").insert(row).execute())
         created_at = _parse_dt(inserted.data[0].get("created_at")) if inserted.data else now
         # Record initial price point so price history starts from day one
         if listing.price:
             await save_price_point(listing.id, listing.price)
         return True, created_at or now
+    except APIError as e:
+        code = str(e.args[0].get("code", "")) if e.args else ""
+        if code not in ("23505",):  # 23505 = unique_violation (duplicate), expected
+            logger.warning("Unexpected DB error inserting listing %s: %s", listing.id, e)
+        return False, now
     except Exception as e:
         logger.debug("Listing already exists: %s (%s)", listing.id, e)
         return False, now
