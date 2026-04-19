@@ -135,12 +135,12 @@
       letter-spacing: -0.02em;
     }
     .logo-icon {
-      width: 28px; height: 28px;
-      border-radius: 7px;
-      overflow: hidden;
+      width: 32px; height: 32px;
+      border-radius: 8px;
       flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
     }
-    .logo-icon img { width: 28px; height: 28px; display: block; }
+    .logo-icon img { width: 32px; height: 32px; display: block; object-fit: contain; }
     .nav-right { display: flex; align-items: center; gap: 8px; }
 
     /* ── Language Dropdown ── */
@@ -379,48 +379,75 @@
     /* Large mobile / small tablet: ≤720px */
     @media (max-width: 720px) {
       section { padding: 72px 0; }
-      #hero { padding: 40px 0 72px; }
+      #hero { padding: 80px 0 72px; }
       #cta { padding: 72px 0; }
 
-      .bento-grid { grid-template-columns: 1fr; }
+      .bento-grid { grid-template-columns: 1fr; grid-auto-rows: auto; }
       .bento-card:nth-child(n) { grid-column: span 1; }
       /* On single-column: icon above, text below — no bottom-justify */
-      .bento-card { justify-content: flex-start; }
+      .bento-card { justify-content: flex-start; align-items: center; text-align: center; }
       .bento-icon { margin-bottom: 20px; }
 
-      .pricing-wrap { grid-template-columns: 1fr; max-width: 440px; }
+      .pricing-wrap { 
+        display: flex; 
+        flex-direction: row; 
+        overflow-x: auto; 
+        scroll-snap-type: x mandatory; 
+        gap: 16px !important; 
+        max-width: none; 
+        margin: -16px -16px 0; 
+        padding: 16px 16px 32px; 
+        -webkit-overflow-scrolling: touch; 
+      }
+      .plan-card { 
+        width: 85vw; 
+        max-width: 85vw;
+        flex: 0 0 85vw;
+        scroll-snap-align: center; 
+      }
+      .plan-card.featured {
+        box-shadow: 0 8px 24px rgba(10, 25, 47, 0.15);
+      }
 
       .nav-wrapper { padding: 0 16px; top: 16px; }
       nav { height: 56px; padding: 0 16px; }
       .nav-right > a { display: none; }
 
-      .footer-inner { flex-direction: column; justify-content: center; }
-      .footer-right { flex-wrap: wrap; justify-content: center; }
+      .footer-container { flex-direction: column !important; gap: 4px !important; padding: 12px 0; }
+      .footer-divider { display: none !important; }
     }
 
     /* Small mobile: ≤480px (iPhone SE, older Androids) */
     @media (max-width: 480px) {
-      section { padding: 56px 0; }
-      #hero { padding: 28px 0 56px; }
-      #cta { padding: 56px 0; }
+      section { padding: 64px 0; }
+      #hero { padding: 72px 0 56px; }
+      #cta { padding: 64px 0; }
 
-      h1 { font-size: 2.1rem; letter-spacing: -0.03em; }
-      h2 { font-size: 1.75rem; }
-      .hero-sub { font-size: 1.1rem; }
-      #cta .cta-sub { font-size: 1.1rem; }
+      h1 { font-size: 1.85rem; letter-spacing: -0.03em; margin-bottom: 16px; }
+      h2 { font-size: 1.6rem; margin-bottom: 12px; }
+      .section-sub { font-size: 1.05rem; }
+      .hero-sub { font-size: 1.05rem; margin-bottom: 24px; }
+      #cta .cta-sub { font-size: 1.05rem; }
 
       .hero-cta { flex-direction: column; align-items: stretch; }
       .hero-cta .btn { justify-content: center; }
 
       /* Pricing: shrink oversized price on narrow screens */
       .plan-price { font-size: 2.6rem; }
-      .plan-card { padding: 32px 24px; }
-      .bento-card { padding: 28px 20px; }
+      .plan-card { padding: 28px 24px; }
+      
+      /* Bento grid: smaller cards on mobile */
+      .bento-card { padding: 24px 20px; }
+      .bento-icon { width: 40px; height: 40px; margin-bottom: 16px; }
+      .bento-card h3 { font-size: 1.15rem; }
+      .bento-card p { font-size: 0.95rem; }
 
       /* Timeline: tighter circles on small screens */
-      .timeline-circle { width: 44px; height: 44px; font-size: 1.15rem; }
-      .timeline-step { gap: 20px; }
-      .timeline-line { left: 22px !important; }
+      .timeline-circle { width: 40px; height: 40px; font-size: 1.1rem; }
+      .timeline-step { gap: 16px !important; margin-bottom: 32px !important; }
+      .timeline-step h3 { font-size: 1.15rem !important; }
+      .timeline-step p { font-size: 0.95rem !important; }
+      .timeline-line { left: 20px !important; }
     }
 
     /* Extra small: ≤360px (Samsung Galaxy A, older budget phones) */
@@ -534,10 +561,10 @@
 
 <section id="features">
   <div class="container">
-    <div class="section-header fade-up">
+    <div class="section-header text-center fade-up">
       <div class="section-label" data-i18n="feat_label"></div>
       <h2 data-i18n="feat_title"></h2>
-      <p class="section-sub" data-i18n="feat_sub"></p>
+      <p class="section-sub text-center" data-i18n="feat_sub"></p>
     </div>
     <div class="bento-grid">
       <div class="bento-card soft-card fade-up delay-1">
@@ -660,19 +687,19 @@
 </section>
 
 <footer style="background: #f5f5f7; border-top: 1px solid var(--border); padding: 20px 0;">
-  <div class="container" style="display: flex; align-items: center; justify-content: center; gap: 0; flex-wrap: wrap;">
+  <div class="container footer-container" style="display: flex; align-items: center; justify-content: center; gap: 0; flex-wrap: wrap;">
     <!-- Logo + Name -->
-    <div style="display: flex; align-items: center; gap: 10px; padding: 0 20px;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 0 20px;" class="footer-logo">
       <span style="font-size: 1.05rem; font-weight: 700; color: var(--dark); letter-spacing: -0.02em;">RentRadar</span>
     </div>
     <!-- Divider -->
-    <span style="color: var(--border); font-size: 0.9rem;">|</span>
+    <span class="footer-divider" style="color: var(--border); font-size: 0.9rem;">|</span>
     <!-- Copyright -->
-    <span style="color: var(--muted); font-size: 0.85rem; padding: 0 20px;">© 2026 <span data-i18n="all_rights"></span></span>
+    <span class="footer-copyright" style="color: var(--muted); font-size: 0.85rem; padding: 0 20px;">© 2026 <span data-i18n="all_rights"></span></span>
     <!-- Divider -->
-    <span style="color: var(--border); font-size: 0.9rem;">|</span>
+    <span class="footer-divider" style="color: var(--border); font-size: 0.9rem;">|</span>
     <!-- Button -->
-    <a href="https://t.me/ApartmentsLVBot" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; background: white; color: var(--primary); font-size: 0.85rem; font-weight: 600; padding: 6px 16px; border-radius: var(--radius-pill); box-shadow: 0 2px 8px rgba(0,0,0,0.06); transition: all 0.2s; border: 1px solid var(--border); text-decoration: none; margin: 0 20px;" data-i18n="footer_cta">
+    <a href="https://t.me/ApartmentsLVBot" target="_blank" rel="noopener noreferrer" class="footer-btn" style="display: inline-flex; align-items: center; background: white; color: var(--primary); font-size: 0.85rem; font-weight: 600; padding: 6px 16px; border-radius: var(--radius-pill); box-shadow: 0 2px 8px rgba(0,0,0,0.06); transition: all 0.2s; border: 1px solid var(--border); text-decoration: none; margin: 0 20px;" data-i18n="footer_cta">
     </a>
   </div>
 </footer>
