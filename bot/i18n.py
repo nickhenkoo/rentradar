@@ -54,6 +54,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "filter_resumed":           "▶️ Filter resumed.",
 
         "alert_hot_prefix":         "🔥 <b>HOT LISTING</b>\n\n",
+        "alert_promoted_prefix":    "⭐ <b>PROMOTED LISTING</b>\n\n",
         "alert_header":             "🏠 <b>New listing — {city}, {district}</b>",
         "alert_header_no_dist":     "🏠 <b>New listing — {city}</b>",
         "alert_price":              "💶 <b>{price} €/month</b>",
@@ -212,6 +213,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "filter_resumed":           "▶️ Фильтр возобновлён.",
 
         "alert_hot_prefix":         "🔥 <b>ГОРЯЧЕЕ ОБЪЯВЛЕНИЕ</b>\n\n",
+        "alert_promoted_prefix":    "⭐ <b>РЕКОМЕНДУЕМОЕ ОБЪЯВЛЕНИЕ</b>\n\n",
         "alert_header":             "🏠 <b>Новое объявление — {city}, {district}</b>",
         "alert_header_no_dist":     "🏠 <b>Новое объявление — {city}</b>",
         "alert_price":              "💶 <b>{price} €/мес</b>",
@@ -366,6 +368,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "filter_resumed":           "▶️ Filtrs atsākts.",
 
         "alert_hot_prefix":         "🔥 <b>KARSTS SLUDINĀJUMS</b>\n\n",
+        "alert_promoted_prefix":    "⭐ <b>IETEICAMAIS SLUDINĀJUMS</b>\n\n",
         "alert_header":             "🏠 <b>Jauns sludinājums — {city}, {district}</b>",
         "alert_header_no_dist":     "🏠 <b>Jauns sludinājums — {city}</b>",
         "alert_price":              "💶 <b>{price} €/mēn</b>",

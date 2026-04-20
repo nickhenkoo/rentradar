@@ -1,7 +1,7 @@
 import os
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler,
-    MessageHandler, PreCheckoutQueryHandler, filters,
+    MessageHandler, filters,
 )
 
 from bot.handlers.start import start, language_callback, help_command
@@ -14,10 +14,6 @@ from bot.handlers.listings import (
     unsave_listing_callback, note_listing_callback, note_message_handler,
     cancel_note,
 )
-from bot.handlers.subscription import (
-    subscribe, buy_feature_callback, precheckout_callback, successful_payment, status,
-)
-from bot.handlers.premium import price_history_callback
 from bot.handlers.feedback import (
     feedback_rate_callback, feedback_comment_skip_callback,
     report_listing_callback, report_reason_callback, report_cancel_callback,
@@ -25,7 +21,7 @@ from bot.handlers.feedback import (
 from bot.handlers.admin import (
     admin_panel, admin_stats, admin_grant, admin_user,
     admin_broadcast, admin_test_alerts, admin_refresh, admin_setplan,
-    admin_test_analytics, admin_test_hot,
+    admin_promote,
 )
 
 
@@ -41,8 +37,6 @@ async def _post_init(application: Application) -> None:
             BotCommand("saved",      "Saved listings"),
             BotCommand("pause_all",  "Pause all alerts"),
             BotCommand("resume_all", "Resume alerts"),
-            BotCommand("subscribe",  "Unlock premium features"),
-            BotCommand("status",     "Your subscription status"),
             BotCommand("language",   "Change language"),
             BotCommand("help",       "Show help"),
         ],
@@ -52,8 +46,6 @@ async def _post_init(application: Application) -> None:
             BotCommand("saved",      "Сохранённые объявления"),
             BotCommand("pause_all",  "Приостановить все алерты"),
             BotCommand("resume_all", "Возобновить алерты"),
-            BotCommand("subscribe",  "Премиум-функции"),
-            BotCommand("status",     "Статус подписки"),
             BotCommand("language",   "Изменить язык"),
             BotCommand("help",       "Помощь"),
         ],
@@ -63,8 +55,6 @@ async def _post_init(application: Application) -> None:
             BotCommand("saved",      "Saglabātie sludinājumi"),
             BotCommand("pause_all",  "Apturēt visus paziņojumus"),
             BotCommand("resume_all", "Atsākt paziņojumus"),
-            BotCommand("subscribe",  "Premium funkcijas"),
-            BotCommand("status",     "Abonēšanas statuss"),
             BotCommand("language",   "Mainīt valodu"),
             BotCommand("help",       "Palīdzība"),
         ],
@@ -80,15 +70,14 @@ async def _post_init(application: Application) -> None:
     admin_id = int(os.environ.get("ADMIN_ID", "0"))
     if admin_id:
         admin_commands = commands["en"] + [
-            BotCommand("admin",             "Admin panel"),
-            BotCommand("admin_stats",       "Analytics"),
-            BotCommand("admin_grant",       "Grant premium"),
-            BotCommand("admin_setplan",     "Set/change user plan"),
-            BotCommand("admin_user",        "View user info"),
-            BotCommand("admin_broadcast",   "Broadcast message"),
-            BotCommand("admin_test_alerts",    "Send 5 test alerts + seed history"),
-            BotCommand("admin_test_hot",       "Test hot listing alert"),
-            BotCommand("admin_test_analytics", "Trigger analytics report now"),
+            BotCommand("admin",                "Admin panel"),
+            BotCommand("admin_promote",        "Push promoted alert to matching users"),
+            BotCommand("admin_stats",          "Analytics"),
+            BotCommand("admin_broadcast",      "Broadcast message"),
+            BotCommand("admin_user",           "View user info"),
+            BotCommand("admin_grant",          "Grant premium"),
+            BotCommand("admin_setplan",        "Set/change user plan"),
+            BotCommand("admin_test_alerts",    "Send 5 test alerts"),
             BotCommand("admin_refresh",        "Clear my sent_alerts"),
         ]
         try:
@@ -140,14 +129,6 @@ def build_application() -> Application:
     app.add_handler(CallbackQueryHandler(note_listing_callback, pattern="^note_listing_"))
     app.add_handler(CommandHandler("cancel_note", cancel_note))
 
-    app.add_handler(CommandHandler("subscribe", subscribe))
-    app.add_handler(CommandHandler("status", status))
-    app.add_handler(CallbackQueryHandler(buy_feature_callback, pattern="^buy_"))
-    app.add_handler(PreCheckoutQueryHandler(precheckout_callback))
-    app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment))
-
-    app.add_handler(CallbackQueryHandler(price_history_callback, pattern="^history_"))
-
     app.add_handler(CallbackQueryHandler(feedback_rate_callback, pattern=r"^feedback_rate_\d$"))
     app.add_handler(CallbackQueryHandler(feedback_comment_skip_callback, pattern="^feedback_comment_skip$"))
     app.add_handler(CallbackQueryHandler(report_listing_callback, pattern=r"^report_listing\|"))
@@ -166,7 +147,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("admin_test_alerts", admin_test_alerts))
     app.add_handler(CommandHandler("admin_refresh", admin_refresh))
     app.add_handler(CommandHandler("admin_setplan", admin_setplan))
-    app.add_handler(CommandHandler("admin_test_analytics", admin_test_analytics))
-    app.add_handler(CommandHandler("admin_test_hot", admin_test_hot))
+
+    app.add_handler(CommandHandler("admin_promote", admin_promote))
 
     return app

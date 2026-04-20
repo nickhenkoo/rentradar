@@ -1,4 +1,5 @@
 import os
+import re
 import logging
 from datetime import datetime, timedelta
 
@@ -262,7 +263,7 @@ async def admin_test_alerts(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             test_listings.append(listing)
 
     for i, listing in enumerate(test_listings, start=1):
-        await send_alert(context.bot, user, listing, test_filter, is_hot=(i == 1))
+        await send_alert(context.bot, user, listing, test_filter)
 
     # Seed price history entries starting from now, going back a few hours
     # (simulates recheck cycles that happened today — no dates before the listing existed)
@@ -355,81 +356,83 @@ async def admin_setplan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 @_require_admin
-async def admin_test_analytics(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Trigger weekly analytics report for admin right now (no need to wait for Monday)."""
-    from core.analytics import _build_analytics
-
-    admin_id = _admin_id()
-    user = await db.get_user(admin_id)
-    if not user:
-        await update.message.reply_text("Admin user not found. Send /start first.")
+async def admin_promote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Usage: /admin_promote <listing_id_or_url>
+    Pushes listing to all users with a matching active filter as a promoted alert.
+    Bypasses sent_alerts dedup — guaranteed delivery for paid placements.
+    """
+    if not context.args:
+        await update.message.reply_text(
+            "Usage: /admin_promote &lt;listing_id_or_url&gt;\n\n"
+            "Examples:\n"
+            "  /admin_promote sslv_12345678\n"
+            "  /admin_promote https://www.ss.lv/lv/real-estate/flats/riga/centre/12345678.html",
+            parse_mode=ParseMode.HTML,
+        )
         return
 
-    week_ago = (datetime.utcnow() - timedelta(days=7)).isoformat()
+    arg = context.args[0]
+
+    if arg.startswith("http"):
+        m = re.search(r'/(\d+)\.html', arg)
+        if not m:
+            await update.message.reply_text("Could not extract listing ID from URL.")
+            return
+        listing_id = f"sslv_{m.group(1)}"
+    else:
+        listing_id = arg
+
     db_client = db.get_client()
-    result = (
-        db_client.table("listings")
-        .select("city, price, rooms, district")
-        .gt("first_seen", week_ago)
-        .neq("is_long_term", False)
-        .execute()
-    )
+    row = db_client.table("listings").select("*").eq("id", listing_id).execute()
+    if not row.data:
+        await update.message.reply_text(
+            f"Listing <code>{listing_id}</code> not found in DB.\n"
+            f"Run a parse cycle first or check the ID.",
+            parse_mode=ParseMode.HTML,
+        )
+        return
 
-    count = len(result.data)
-    text = _build_analytics(user, result.data)
-    await context.bot.send_message(admin_id, text, parse_mode="HTML")
-    await update.message.reply_text(f"✅ Analytics sent ({count} listings from past 7 days).")
-
-
-@_require_admin
-async def admin_test_hot(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Send one test hot-listing alert to admin.
-    Picks the cheapest real listing vs median in its city+rooms bucket,
-    or sends a forced-hot fake if no real listings exist.
-    """
     from core.models import Listing, Filter
+    from core.matcher import find_matching_filters
     from core.notifier import send_alert
 
-    admin_id = _admin_id()
-    user = await db.get_user(admin_id)
-    if not user:
-        await update.message.reply_text("Admin user not found. Send /start first.")
-        return
-
-    test_filter = Filter(
-        id="test_hot", user_id=admin_id, city="riga",
-        label="Hot test", price_min=None, price_max=None,
+    r = row.data[0]
+    listing = Listing(
+        id=r["id"], source=r.get("source", "sslv"), url=r["url"],
+        city=r.get("city", "riga"), title=r.get("title"),
+        district=r.get("district"), street=r.get("street"),
+        price=r.get("price"), rooms=r.get("rooms"), area=r.get("area"),
+        floor=r.get("floor"), floor_total=r.get("floor_total"),
+        series=r.get("series"), is_long_term=r.get("is_long_term", True),
+        image_urls=r.get("image_urls") or [],
     )
 
-    # Try to find the cheapest real listing to use as the "hot" one
-    db_client = db.get_client()
-    rows = db_client.table("listings").select("*").not_.is_("price", "null").order("price").limit(1).execute()
+    all_filters = await db.get_all_active_filters()
+    matching = await find_matching_filters(listing, all_filters)
 
-    if rows.data:
-        row = rows.data[0]
-        listing = Listing(
-            id=row["id"], source=row.get("source", "sslv"), url=row["url"],
-            city=row.get("city", "riga"), title=row.get("title"),
-            district=row.get("district"), street=row.get("street"),
-            price=row.get("price"), rooms=row.get("rooms"), area=row.get("area"),
-            floor=row.get("floor"), floor_total=row.get("floor_total"),
-            series=row.get("series"), is_long_term=row.get("is_long_term", True),
-            image_urls=row.get("image_urls") or [],
-        )
-    else:
-        listing = Listing(
-            id="test_hot_1", source="sslv",
-            url="https://www.ss.lv/lv/real-estate/flats/riga/centre/test00000001.html",
-            city="riga", district="Centrs", street="Brīvības iela 1",
-            price=299, rooms=2, area=52, floor=3, floor_total=9, series="602",
-            is_long_term=True,
-        )
-        await db.save_listing(listing)
+    # One alert per user — pick first matching filter
+    user_filter_map: dict[int, Filter] = {}
+    for f in matching:
+        if f.user_id not in user_filter_map:
+            user_filter_map[f.user_id] = f
 
-    # Force is_hot=True regardless of subscription gate (this is a test command)
-    await send_alert(context.bot, user, listing, test_filter, is_hot=True)
+    sent = 0
+    skipped = 0
+    for user_id, f in user_filter_map.items():
+        user = await db.get_user(user_id)
+        if not user or user.alerts_paused:
+            skipped += 1
+            continue
+        await send_alert(context.bot, user, listing, f, is_promoted=True)
+        sent += 1
+
     await update.message.reply_text(
-        f"✅ Hot alert sent for listing <code>{listing.id}</code> · {listing.price} €",
-        parse_mode="HTML",
+        f"✅ Promoted alert sent to <b>{sent}</b> users "
+        f"({len(matching)} filter matches).\n"
+        f"Skipped: <b>{skipped}</b> (paused or not found).\n\n"
+        f"Listing: <code>{listing_id}</code> · {listing.price} €",
+        parse_mode=ParseMode.HTML,
     )
+
+

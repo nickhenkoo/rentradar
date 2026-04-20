@@ -24,14 +24,14 @@ def _localize_url(url: str, lang: str) -> str:
     return url
 
 
-def _build_alert_text(user: User, listing: Listing, f: Filter, is_hot: bool = False) -> str:
+def _build_alert_text(user: User, listing: Listing, f: Filter, is_promoted: bool = False) -> str:
     lang = user.language
     district = listing.district or ""
 
     lines = []
 
-    if is_hot:
-        lines.append(t("alert_hot_prefix", lang))
+    if is_promoted:
+        lines.append(t("alert_promoted_prefix", lang))
 
     if district:
         lines.append(t("alert_header", lang, city=city_name(listing.city, lang), district=district_name(district, lang)))
@@ -70,8 +70,6 @@ def _build_alert_text(user: User, listing: Listing, f: Filter, is_hot: bool = Fa
 def _build_keyboard(user: User, listing: Listing, lang: str) -> InlineKeyboardMarkup:
     listing_url = _localize_url(listing.url, lang)
     row1 = [InlineKeyboardButton(t("btn_view", lang), url=listing_url)]
-    if user.has("history"):
-        row1.append(InlineKeyboardButton(t("btn_price_history", lang), callback_data=f"history_{listing.id}"))
     row2 = [
         InlineKeyboardButton(t("btn_save_listing", lang), callback_data=f"save_listing_{listing.id}"),
         InlineKeyboardButton(t("btn_report", lang), callback_data=f"report_listing|{listing.id}"),
@@ -94,9 +92,9 @@ async def _fetch_image(url: str) -> io.BytesIO | None:
     return None
 
 
-async def send_alert(bot, user: User, listing: Listing, f: Filter, is_hot: bool = False) -> None:
+async def send_alert(bot, user: User, listing: Listing, f: Filter, is_promoted: bool = False) -> None:
     lang = user.language
-    text = _build_alert_text(user, listing, f, is_hot)
+    text = _build_alert_text(user, listing, f, is_promoted)
     keyboard = _build_keyboard(user, listing, lang)
 
     sent = False
