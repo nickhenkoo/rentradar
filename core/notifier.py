@@ -81,15 +81,16 @@ def _build_keyboard(user: User, listing: Listing, lang: str) -> InlineKeyboardMa
 
 async def _fetch_image(url: str) -> io.BytesIO | None:
     """Download image from ss.lv and return as BytesIO so Telegram uploads it directly."""
-    try:
-        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
-            r = await client.get(url, headers={"Referer": "https://www.ss.lv/"})
-        if r.status_code == 200 and r.content:
-            buf = io.BytesIO(r.content)
-            buf.name = "photo.jpg"
-            return buf
-    except Exception as e:
-        logger.debug("Failed to fetch image %s: %s", url, e)
+    for attempt in range(2):
+        try:
+            async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+                r = await client.get(url, headers={"Referer": "https://www.ss.lv/"})
+            if r.status_code == 200 and r.content:
+                buf = io.BytesIO(r.content)
+                buf.name = "photo.jpg"
+                return buf
+        except Exception as e:
+            logger.debug("Failed to fetch image %s (attempt %d): %s", url, attempt + 1, e)
     return None
 
 
@@ -101,17 +102,18 @@ async def send_alert(bot, user: User, listing: Listing, f: Filter, is_hot: bool 
     sent = False
     if listing.image_urls:
         photo_bytes = await _fetch_image(listing.image_urls[0])
-        try:
-            await bot.send_photo(
-                chat_id=user.id,
-                photo=photo_bytes or listing.image_urls[0],
-                caption=text,
-                parse_mode=ParseMode.HTML,
-                reply_markup=keyboard,
-            )
-            sent = True
-        except Exception as e:
-            logger.warning("send_photo failed for user %d (%s), falling back to text: %s", user.id, listing.id, e)
+        if photo_bytes:
+            try:
+                await bot.send_photo(
+                    chat_id=user.id,
+                    photo=photo_bytes,
+                    caption=text,
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=keyboard,
+                )
+                sent = True
+            except Exception as e:
+                logger.warning("send_photo failed for user %d (%s), falling back to text: %s", user.id, listing.id, e)
 
     if not sent:
         try:

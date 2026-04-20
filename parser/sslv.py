@@ -133,10 +133,10 @@ class SsLvParser(BaseParser):
         if not cells:
             return None, None
         price_text = cells[-1].get_text(strip=True)
-        match = re.search(r'(\d[\d\s]*)\s*€', price_text)
+        match = re.search(r'(\d[\d\s\xa0]*)\s*€', price_text)
         if not match:
             return None, None
-        price = int(match.group(1).replace(" ", ""))
+        price = int(re.sub(r'[\s\xa0]', '', match.group(1)))
         pt_lower = price_text.lower()
         is_long_term = not any(kw in pt_lower for kw in self._SHORT_TERM_PRICE_KEYWORDS)
         return price, is_long_term
